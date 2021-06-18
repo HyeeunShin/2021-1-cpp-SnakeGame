@@ -24,18 +24,18 @@ snakeclass::snakeclass()
 	curs_set(0);                            //cursor invisible
 	
 	setlocale(LC_ALL, "");	// 유니코드 사용 위한 함수
-	resize_term(40, 140);
 	
 	start_color();	// 색 쓰기 위한 함수
 
 
 	//getmaxyx(stdscr,maxheight,maxwidth);	// set the window size
+	initheight = game_board.get_init_y();
+	initwidth = game_board.get_init_x();
 	maxheight = game_board.get_max_y();
 	maxwidth = game_board.get_max_x();
 
-	// set the character of snake, wall, food, poison
+	// set the character of snake, food, poison
 	partchar='x'; //snake
-	//oldalchar=(char)219; //wall
 	etel='*'; //food
 	pstel='@'; //poison
 
@@ -52,7 +52,6 @@ snakeclass::snakeclass()
 		snake.push_back(snakepart(40+i,10));
 
 	// point 초기화
-	points=0;
 	del=110000;
 	get=0; //get boolean initialation
 	lost = 0; //lost boolean initialation
@@ -69,33 +68,6 @@ snakeclass::snakeclass()
 	// Make the game-board
 	game_board.print_wall();
 	
-	/*
-	// up-horizontal
-	for(int i=0;i<maxwidth-1;i++)
-	{
-	move(0,i);
-	addch(oldalchar);
-	}
-	//left-vertical
-	for(int i=0;i<maxheight-1;i++)
-	{
-	move(i,0);
-	addch(oldalchar);
-	}
-	//down-horizontal
-	for(int i=0;i<maxwidth-1;i++)
-	{
-	move(maxheight-2,i);
-	addch(oldalchar);
-	}
-	//right-vertical
-	for(int i=0;i<maxheight-1;i++)
-	{
-	move(i,maxwidth-2);
-	addch(oldalchar);
-	}
-	*/
-
 	//draw the snake
 	for(int i=0;i<snake.size();i++)
 	{
@@ -103,9 +75,6 @@ snakeclass::snakeclass()
 	addch(partchar);
 	}
 
-	// 게임 점수 표시
-	move(maxheight-1,0);
-	printw("%d",points);
 	move(food.y,food.x);
 	move(poison.y, poison.x);
 	addch(etel);
@@ -126,13 +95,13 @@ void snakeclass::putfood()
 {
     while(1)
     {
-        int tmpx = rand() % maxwidth + 1; // 1 ~ width
-        int tmpy = rand() % maxheight + 1; // 1 ~ height
+        int tmpx = rand() % maxwidth + initwidth; // initwidth ~ width
+        int tmpy = rand() % maxheight + initheight; // initheight ~ height
 
         for(int i=0;i<snake.size();i++)
             if(snake[i].x==tmpx && snake[i].y==tmpy)
                 continue;
-        if(tmpx>=maxwidth-2 || tmpy>=maxheight-3)
+        if(tmpx>=maxwidth || tmpy>=maxheight || tmpx<=initwidth || tmpy<=initheight)
             continue;
         food.x=tmpx;
         food.y=tmpy;
@@ -148,12 +117,12 @@ void snakeclass::putpoison()
 {
   while(1)
   {
-      int tmpx=rand()%maxwidth+1;
-      int tmpy=rand()%maxheight+1;
+      int tmpx=rand()%maxwidth+initwidth;
+      int tmpy=rand()%maxheight+initheight;
       for(int i=0;i<snake.size();i++)
           if(snake[i].x==tmpx && snake[i].y==tmpy)
               continue;
-      if(tmpx>=maxwidth-2 || tmpy>=maxheight-3)
+      if(tmpx>=maxwidth || tmpy>=maxheight || tmpx<=initwidth || tmpy<=initheight)
           continue;
       poison.x=tmpx;
       poison.y=tmpy;
@@ -168,7 +137,7 @@ void snakeclass::putpoison()
 bool snakeclass::collision()
 {
 	//snake가 벽과 충돌할 경우	
-	if(snake[0].x==0 || snake[0].x==maxwidth-1 || snake[0].y==0 || snake[0].y==maxheight-2)
+	if(snake[0].x==initwidth || snake[0].x==maxwidth || snake[0].y==initheight || snake[0].y==maxheight)
 		return true;
 
 	//snake가 자기 자신과 충돌할 경우
@@ -181,32 +150,40 @@ bool snakeclass::collision()
     //collision with the food
 	if(snake[0].x==food.x && snake[0].y==food.y)
 	{
-		get=true;
+		get = true;
 		putfood();
-		points+=10;
-		move(maxheight-1,0);
-		printw("%d",points);
 		
-		if((points%100)==0)
-			del-=10000;
+		game_board.set_point(10);
+		move(5, 84);
+		printw("%d", game_board.get_point());
+	
+		if((game_board.get_point() % 100)==0)
+			del-=10000;	// 점수 높아질 수록 속도 빨라진다
+
+		return false;
 
 	}
 	
 	//collision with the poison
 	else if(snake[0].x==poison.x && snake[0].y==poison.y)
 	{
-		get=false;
-		lost = true;
+		get = false;
 		putpoison();
-		points-=10;
-		move(maxheight-1,0);
-		printw("%d",points);
-		if((points%100)==0)
-			del-=10000;
+
+		game_board.set_point(-10);
+		move(5, 84);
+		printw("%d", game_board.get_point());
+	
+		if((game_board.get_point() % 100)==0)
+			del+=10000;	// 점수 낮아질 수록 속도 느려진다
+
+		move(snake[snake.size()-1].y,snake[snake.size()-1].x);
+		printw(" ");
+		snake.pop_back();
 	}
 	
 	else{
-		get=false;
+		get = false;
 	}
 
 	return false;
@@ -240,18 +217,13 @@ void snakeclass::movesnake()
             break;
     }
     //if there wasn't a collision with food
-    if(!get)
-    {
-      if(lost) //poison collison -> delch
-      {
-        //partcharSize = partchar.length;
-        //partchar =
-      }
-        move(snake[snake.size()-1].y,snake[snake.size()-1].x);
-        printw(" ");
-        refresh();
-        snake.pop_back();
-    }
+    //food를 먹었을 때는 밑의 if문이 실행하지 않으며 뒤에 빼는 작업 X
+	if(!get)
+	{
+		move(snake[snake.size()-1].y,snake[snake.size()-1].x);
+		printw(" ");
+		snake.pop_back();
+	}
 
     //direction func
     if(direction=='l')
@@ -266,8 +238,9 @@ void snakeclass::movesnake()
         snake.insert(snake.begin(),snakepart(snake[0].x,snake[0].y+1));
     }
 
-        move(snake[0].y,snake[0].x);
-        addch(partchar);
+	move(snake[0].y,snake[0].x);
+	addch(partchar);
+
     refresh();
 }
 

@@ -10,12 +10,14 @@ struct snakepart{
 };
 
 class snakeclass{
-    int points,del;
+    int del;
     //indicates that the snake get food (it makes the snake longer)
     bool get,lost; 
     //indicates the current direction of the snake
     char direction;
 
+    int initwidth;
+    int initheight;
     int maxwidth;
     int maxheight;
     char partchar;
